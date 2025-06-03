@@ -1,0 +1,90 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# --- Load and Preprocess the Full Dataset ---
+iris = load_iris()
+X = iris.data
+y = iris.target
+feature_names = iris.feature_names
+
+# Normalize all features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Split dataset
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)
+
+# --- KNN Classification with Accuracy Evaluation ---
+k_values = list(range(1, 16))
+accuracies = []
+
+for k in k_values:
+    knn = KNeighborsClassifier(n_neighbors=k)
+    knn.fit(X_train, y_train)
+    y_pred = knn.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    accuracies.append(acc)
+    print(f"K = {k} | Accuracy = {acc:.4f}")
+
+# Best K
+best_k = k_values[np.argmax(accuracies)]
+print(f"\n✅ Best K: {best_k} with Accuracy = {max(accuracies):.4f}")
+
+# Final Model
+knn_final = KNeighborsClassifier(n_neighbors=best_k)
+knn_final.fit(X_train, y_train)
+y_pred_final = knn_final.predict(X_test)
+
+# Confusion Matrix & Report
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred_final))
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred_final, target_names=iris.target_names))
+
+# --- Accuracy Plot ---
+plt.figure(figsize=(8, 5))
+plt.plot(k_values, accuracies, marker='o', linestyle='--', color='blue')
+plt.title('KNN Accuracy vs K')
+plt.xlabel('K (Number of Neighbors)')
+plt.ylabel('Accuracy')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# --- Decision Boundary (using only first 2 features) ---
+X_vis = iris.data[:, :2]  # Sepal length and width
+y_vis = iris.target
+
+# Normalize for visualization
+X_vis_scaled = StandardScaler().fit_transform(X_vis)
+
+# Train with best_k
+knn_vis = KNeighborsClassifier(n_neighbors=best_k)
+knn_vis.fit(X_vis_scaled, y_vis)
+
+# Create meshgrid
+x_min, x_max = X_vis_scaled[:, 0].min() - 1, X_vis_scaled[:, 0].max() + 1
+y_min, y_max = X_vis_scaled[:, 1].min() - 1, X_vis_scaled[:, 1].max() + 1
+xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02),
+                     np.arange(y_min, y_max, 0.02))
+
+Z = knn_vis.predict(np.c_[xx.ravel(), yy.ravel()])
+Z = Z.reshape(xx.shape)
+
+# Plot decision boundary
+plt.figure(figsize=(8, 6))
+plt.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.Set1)
+plt.scatter(X_vis_scaled[:, 0], X_vis_scaled[:, 1], c=y_vis, edgecolor='k', cmap=plt.cm.Set1)
+plt.title(f"KNN Decision Boundary (2 Features, K={best_k})")
+plt.xlabel("Sepal length (normalized)")
+plt.ylabel("Sepal width (normalized)")
+plt.tight_layout()
+plt.show()
